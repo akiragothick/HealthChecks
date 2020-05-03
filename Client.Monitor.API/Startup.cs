@@ -37,7 +37,7 @@ namespace Client.Monitor.API
 
             #region MEMORY HEALTH CHECK
             services.AddHealthChecks()
-                .AddProcessAllocatedMemoryHealthCheck(1024, name: "1Mb allocated Healthy", tags: new[] { "Disk" });
+                .AddProcessAllocatedMemoryHealthCheck(1024, name: "1Gb allocated Healthy", tags: new[] { "Disk" });
             #endregion
 
             #region HTTP REST API
@@ -79,7 +79,7 @@ namespace Client.Monitor.API
 
             #region DISK
             services.AddHealthChecks()
-                .AddDiskStorageHealthCheck(s => s.AddDrive("C:\\", 1024 * 90), name: "Disk C min 3Gb", tags: new[] { "Disk" })
+                .AddDiskStorageHealthCheck(s => s.AddDrive("C:\\", 1024 * 3), name: "Disk C min 3Gb", tags: new[] { "Disk" })
                 .AddDiskStorageHealthCheck(s => s.AddDrive("D:\\", 1024 * 3), name: "Disk D min 3Gb", tags: new[] { "Disk" });
             #endregion
 
@@ -93,7 +93,19 @@ namespace Client.Monitor.API
                     break;
 
                 services.AddHealthChecks()
-                    .AddWindowsServiceHealthCheck(service, s => s.Status == ServiceControllerStatus.Running, name, tags: new[] { "WindowService" });
+                    .AddWindowsServiceHealthCheck(service, s => {
+                        try
+                        {
+                            if (s.Status == ServiceControllerStatus.Running)
+                                return true;
+                            else
+                                return false;
+                        }
+                        catch (Exception ex)
+                        {
+                            return false;
+                        }
+                    }, name, tags: new[] { "WindowService" });
             }
             #endregion
 
@@ -140,6 +152,8 @@ namespace Client.Monitor.API
                 endpoints.MapControllers();
                 endpoints.MapHealthChecksUI(setup =>
                 {
+                    setup.ApiPath = "/hc"; 
+                    setup.UIPath = "/grindelwald-ui";
                     setup.AddCustomStylesheet("wwwroot\\css\\dotnet.css");
                 });
 
