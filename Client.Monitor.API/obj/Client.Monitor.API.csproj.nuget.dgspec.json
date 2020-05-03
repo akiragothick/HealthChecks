@@ -41,6 +41,10 @@
       "frameworks": {
         "netcoreapp3.1": {
           "dependencies": {
+            "AspNetCore.HealthChecks.Network": {
+              "target": "Package",
+              "version": "[3.1.1, )"
+            },
             "AspNetCore.HealthChecks.SqlServer": {
               "target": "Package",
               "version": "[3.1.1, )"

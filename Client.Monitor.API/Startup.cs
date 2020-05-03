@@ -37,28 +37,27 @@ namespace Client.Monitor.API
 
             #region MEMORY HEALTH CHECK
             services.AddHealthChecks()
-                .AddProcessAllocatedMemoryHealthCheck(1024, name: "1Gb allocated Healthy", tags: new[] { "Disk" });
+                .AddProcessAllocatedMemoryHealthCheck(int.Parse(Configuration[$"HealthChecks:MemoryMegabytes:Size"]), name: Configuration[$"HealthChecks:MemoryMegabytes:Name"], tags: new[] { "Disk" });
             #endregion
 
-            #region HTTP REST API
+            #region HTTP
             for (int i = 0; i < 100; i++)
             {
-                var urlBase = Configuration[$"HealthChecks:{i}:Base"];
-                var tag = Configuration[$"HealthChecks:{i}:Tag"];
+                var tag = Configuration[$"HealthHttpChecks:{i}:Tag"];
 
-                if (string.IsNullOrEmpty(urlBase))
+                if (string.IsNullOrEmpty(tag))
                     break;
 
                 for (int a = 0; a < 100; a++)
                 {
-                    var urlUri = Configuration[$"HealthChecks:{i}:Uris:{a}:Uri"];
-                    var nameUri = Configuration[$"HealthChecks:{i}:Uris:{a}:Name"];
+                    var urlUri = Configuration[$"HealthHttpChecks:{i}:Uris:{a}:Uri"];
+                    var nameUri = Configuration[$"HealthHttpChecks:{i}:Uris:{a}:Name"];
 
                     if (string.IsNullOrEmpty(urlUri))
                         break;
 
                     services.AddHealthChecks()
-                        .AddUrlGroup(new Uri($"{urlBase}{urlUri}"), nameUri, tags: new[] { tag });
+                        .AddUrlGroup(new Uri(urlUri), nameUri, tags: new[] { tag });
                 }
             }
             #endregion
@@ -78,9 +77,18 @@ namespace Client.Monitor.API
             #endregion
 
             #region DISK
-            services.AddHealthChecks()
-                .AddDiskStorageHealthCheck(s => s.AddDrive("C:\\", 1024 * 3), name: "Disk C min 3Gb", tags: new[] { "Disk" })
-                .AddDiskStorageHealthCheck(s => s.AddDrive("D:\\", 1024 * 3), name: "Disk D min 3Gb", tags: new[] { "Disk" });
+            for (int i = 0; i < 100; i++)
+            {
+                var name = Configuration[$"HealthDiskChecks:{i}:Name"];
+                var drive = Configuration[$"HealthDiskChecks:{i}:Drive"];
+                var size = Configuration[$"HealthDiskChecks:{i}:Size"];
+
+                if (string.IsNullOrEmpty(name))
+                    break;
+
+                services.AddHealthChecks()
+                    .AddDiskStorageHealthCheck(s => s.AddDrive(drive, 1024 * int.Parse(size)), name, tags: new[] { "Disk" });
+            }
             #endregion
 
             #region WINDOWS SERVICE
@@ -93,7 +101,8 @@ namespace Client.Monitor.API
                     break;
 
                 services.AddHealthChecks()
-                    .AddWindowsServiceHealthCheck(service, s => {
+                    .AddWindowsServiceHealthCheck(service, s =>
+                    {
                         try
                         {
                             if (s.Status == ServiceControllerStatus.Running)
@@ -101,7 +110,7 @@ namespace Client.Monitor.API
                             else
                                 return false;
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
                             return false;
                         }
@@ -109,28 +118,39 @@ namespace Client.Monitor.API
             }
             #endregion
 
-            //services.AddHealthChecks()
-            //          .AddCheck("AlwaysHealthy", () => HealthCheckResult.Healthy(), tags: new[] { "Tag2" });
+            #region PING
+            for (int i = 0; i < 100; i++)
+            {
+                var name = Configuration[$"HealthPingChecks:{i}:Name"];
+                var host = Configuration[$"HealthPingChecks:{i}:Host"];
 
+                if (string.IsNullOrEmpty(name))
+                    break;
+
+                services.AddHealthChecks()
+                    .AddPingHealthCheck(s => s.AddHost(host, 2000), name, HealthStatus.Degraded, tags: new[] { "Ping" });
+            }
+            #endregion
 
             services.AddHealthChecksUI(x =>
             {
-                //x.AddHealthCheckEndpoint("ALL HTTP Check", "http://localhost:4081/health");
+                //x.AddHealthCheckEndpoint("ALL HTTP Check", $"{Configuration["HealthChecks:Uri"]}/health");
 
                 for (int i = 0; i < 100; i++)
                 {
-                    var name = Configuration[$"HealthChecks:{i}:Name"];
-                    var tag = Configuration[$"HealthChecks:{i}:Tag"];
+                    var name = Configuration[$"HealthHttpChecks:{i}:Name"];
+                    var tag = Configuration[$"HealthHttpChecks:{i}:Tag"];
 
-                    if (string.IsNullOrEmpty(tag))
+                    if (string.IsNullOrEmpty(name))
                         break;
 
-                    x.AddHealthCheckEndpoint(name, $"http://localhost:4081/{tag}");
+                    x.AddHealthCheckEndpoint(name, $"{Configuration["HealthChecks:Uri"]}/{tag}");
                 }
 
-                x.AddHealthCheckEndpoint("Databases Check", "http://localhost:4081/healthdb");
-                x.AddHealthCheckEndpoint("Windows Service Check", "http://localhost:4081/healthwservice");
-                x.AddHealthCheckEndpoint("Disk Check", "http://localhost:4081/healthdisk");                
+                x.AddHealthCheckEndpoint("Databases Check", $"{Configuration["HealthChecks:Uri"]}/healthdb");
+                x.AddHealthCheckEndpoint("Windows Service Check", $"{Configuration["HealthChecks:Uri"]}/healthwservice");
+                x.AddHealthCheckEndpoint("Ping Check", $"{Configuration["HealthChecks:Uri"]}/healthping");
+                x.AddHealthCheckEndpoint("Disk Check", $"{Configuration["HealthChecks:Uri"]}/healthdisk");
             })
             .AddInMemoryStorage();
 
@@ -152,8 +172,9 @@ namespace Client.Monitor.API
                 endpoints.MapControllers();
                 endpoints.MapHealthChecksUI(setup =>
                 {
-                    setup.ApiPath = "/hc"; 
+                    setup.ApiPath = "/hc";
                     setup.UIPath = "/grindelwald-ui";
+                    setup.AsideMenuOpened = false;
                     setup.AddCustomStylesheet("wwwroot\\css\\dotnet.css");
                 });
 
@@ -165,10 +186,9 @@ namespace Client.Monitor.API
 
                 for (int i = 0; i < 100; i++)
                 {
-                    var urlBase = Configuration[$"HealthChecks:{i}:Base"];
-                    var tag = Configuration[$"HealthChecks:{i}:Tag"];
+                    var tag = Configuration[$"HealthHttpChecks:{i}:Tag"];
 
-                    if (string.IsNullOrEmpty(urlBase))
+                    if (string.IsNullOrEmpty(tag))
                         break;
 
                     endpoints.MapHealthChecks($"/{tag}", new HealthCheckOptions()
@@ -184,17 +204,24 @@ namespace Client.Monitor.API
                     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
                 });
 
+                endpoints.MapHealthChecks("/healthwservice", new HealthCheckOptions()
+                {
+                    Predicate = (check) => check.Tags.Contains("WindowService"),
+                    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+                });
+
+                endpoints.MapHealthChecks("/healthping", new HealthCheckOptions()
+                {
+                    Predicate = (check) => check.Tags.Contains("Ping"),
+                    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+                });
+
                 endpoints.MapHealthChecks("/healthdisk", new HealthCheckOptions()
                 {
                     Predicate = (check) => check.Tags.Contains("Disk"),
                     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
                 });
 
-                endpoints.MapHealthChecks("/healthwservice", new HealthCheckOptions()
-                {
-                    Predicate = (check) => check.Tags.Contains("WindowService"),
-                    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
-                });
             });
         }
     }
