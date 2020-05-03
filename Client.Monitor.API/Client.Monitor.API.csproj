@@ -13,5 +13,11 @@
     <PackageReference Include="AspNetCore.HealthChecks.Uris" Version="3.1.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="wwwroot\css\" />
+  </ItemGroup>
+
+  <ProjectExtensions><VisualStudio><UserProperties appsettings_1json__JsonSchema="" /></VisualStudio></ProjectExtensions>
+
 
 </Project>

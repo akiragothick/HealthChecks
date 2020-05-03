@@ -1,4 +1,4 @@
-# DEV POST
+# Health Checks
 
 Web api Health Checks created in .Net Core Cli
 
